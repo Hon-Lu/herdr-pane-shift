@@ -1,0 +1,56 @@
+﻿id = "pane-shift"
+name = "Pane Shift"
+version = "0.1.0"
+min_herdr_version = "0.9.0"
+description = "Move panes around: swap with a neighbor, break into a new tab, rotate a split, or place beside any pane"
+platforms = ["linux", "macos", "windows"]
+
+[[actions]]
+id = "move-left"
+title = "Pane Shift: move pane left"
+contexts = ["global"]
+command = ["node", "bin/pane-shift.mjs", "move", "left"]
+
+[[actions]]
+id = "move-up"
+title = "Pane Shift: move pane up"
+contexts = ["global"]
+command = ["node", "bin/pane-shift.mjs", "move", "up"]
+
+[[actions]]
+id = "move-right"
+title = "Pane Shift: move pane right"
+contexts = ["global"]
+command = ["node", "bin/pane-shift.mjs", "move", "right"]
+
+[[actions]]
+id = "move-down"
+title = "Pane Shift: move pane down"
+contexts = ["global"]
+command = ["node", "bin/pane-shift.mjs", "move", "down"]
+
+[[actions]]
+id = "break"
+title = "Pane Shift: break pane into new tab"
+contexts = ["global"]
+command = ["node", "bin/pane-shift.mjs", "break"]
+
+[[actions]]
+id = "rotate"
+title = "Pane Shift: rotate split"
+contexts = ["global"]
+command = ["node", "bin/pane-shift.mjs", "rotate"]
+
+[[actions]]
+id = "place"
+title = "Pane Shift: place pane beside another pane"
+contexts = ["global"]
+command = ["node", "bin/pane-shift.mjs", "place"]
+
+[[panes]]
+id = "picker"
+title = "Place pane"
+placement = "popup"
+width = "70%"
+height = "70%"
+command = ["node", "bin/picker.mjs"]
