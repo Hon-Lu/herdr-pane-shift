@@ -208,4 +208,4 @@ herdr plugin link /path/to/herdr-pane-shift
 
 ## License
 
-MIT
+Released under the [MIT License](LICENSE). Use it, change it, and share it freely.

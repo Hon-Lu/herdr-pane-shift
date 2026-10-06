@@ -189,4 +189,4 @@ herdr plugin link /path/to/herdr-pane-shift
 
 ## 授權
 
-MIT
+以 [MIT 授權](LICENSE) 釋出，可以自由使用、修改與散布。
