@@ -1,44 +1,49 @@
-﻿# Pane Shift
+﻿**English** | [繁體中文](README.zh-TW.md)
 
-A small [Herdr](https://herdr.dev) plugin for rearranging panes from the keyboard:
+# Pane Shift
 
-| Suggested key | Action | What it does |
-|---|---|---|
-| `prefix+ctrl+←` `↑` `→` `↓` | `pane-shift.move-left` / `-up` / `-right` / `-down` | Swap the focused pane with its neighbor in that direction |
-| `prefix+ctrl+t` | `pane-shift.break` | Move the focused pane into a new tab of its own |
-| `prefix+ctrl+r` | `pane-shift.rotate` | Stack the focused pane into the column beside it, or pop it out of its column |
-| `prefix+ctrl+p` | `pane-shift.place` | Pick any pane in any tab and place the focused pane on one side of it |
+A small [Herdr](https://herdr.dev) plugin for rearranging panes from the keyboard. Swap a pane
+with its neighbor, break it into its own tab, rotate a split, or place it beside any pane in any
+tab. Running processes and agents keep going: panes are only moved, never closed or re-created.
 
-None of the suggested keys are used by Herdr's defaults. With the default prefix (`ctrl+b`) you
-can hold Ctrl the whole time: hold Ctrl, tap B, then tap the arrow, T, R, or P.
+| Key | What it does |
+|---|---|
+| `prefix+ctrl+←` `↑` `→` `↓` | Swap the focused pane with its neighbor in that direction |
+| `prefix+ctrl+t` | Move the focused pane into a new tab of its own |
+| `prefix+ctrl+r` | Rotate: stack the pane into the column beside it, or pop it out of its column |
+| `prefix+ctrl+p` | Pick any pane in any tab and place the focused pane on one side of it |
 
-Running processes and agents keep going: panes are moved with `herdr pane move` and
-`herdr pane swap`, never closed or re-created. A tab left empty by a move is closed by Herdr.
+With Herdr's default prefix (`ctrl+b`) you can hold Ctrl the whole time: hold Ctrl, tap B, then
+tap the arrow, T, R, or P.
 
-## Requirements
+## Quick start
+
+### 1. Check the requirements
 
 - Herdr 0.9.0 or newer
-- Node.js 18 or newer on `PATH`
+- Node.js 18 or newer, available as `node` on your `PATH`
 
-No dependencies, no build step. Linux, macOS, and Windows.
+No other dependencies and no build step. Works on Linux, macOS, and Windows.
 
-## Install
+### 2. Install the plugin
 
 ```sh
 herdr plugin install Hon-Lu/herdr-pane-shift
 ```
 
-Or from a local checkout:
+Herdr shows a preview of the commands the plugin runs and asks you to confirm.
 
-```sh
-herdr plugin link /path/to/herdr-pane-shift
-```
+### 3. Add the keybindings
 
-## Keybindings
+Herdr plugins cannot ship their own keybindings, so the plugin does nothing on a keypress until
+you add these. Open Herdr's `config.toml`:
 
-Herdr plugins cannot ship keybindings, so add these to Herdr's `config.toml`
-(`%APPDATA%\herdr\config.toml` on Windows) and run `herdr server reload-config`. Change any key
-that clashes with your own bindings or another plugin:
+| OS | Path |
+|---|---|
+| Windows | `%APPDATA%\herdr\config.toml` |
+| Linux, macOS | `~/.config/herdr/config.toml` |
+
+Paste this at the end of the file:
 
 ```toml
 [[keys.command]]
@@ -84,19 +89,20 @@ command = "pane-shift.place"
 description = "place pane beside another pane"
 ```
 
-Avoid `prefix+ctrl+m` for your own bindings: terminals send Ctrl+M as Enter.
+None of these keys are used by Herdr's defaults. If one clashes with your own bindings or another
+plugin, change the `key` line.
 
-Press the prefix only once. In prefix mode a second `ctrl+b` sends a literal `^B` to the pane
-and leaves prefix mode, and in navigate mode it only leaves navigate mode. Either way the next
-key goes to the pane instead of triggering an action.
-
-Every action also works from the CLI and acts on the pane Herdr currently has focused:
+### 4. Reload the config
 
 ```sh
-herdr plugin action invoke pane-shift.rotate
+herdr server reload-config
 ```
 
-### Optional: move focus with the arrow keys too
+### 5. Try it
+
+Split a pane (`ctrl+b`, then `v`), then press `ctrl+b`, `ctrl+←`. The two panes swap places.
+
+## Optional: move focus with the arrow keys too
 
 Herdr moves focus with `prefix+h/j/k/l` by default, and `prefix+arrow` is unbound. Binding the
 arrows to focus pairs naturally with this plugin: the arrows move focus, and the same arrows with
@@ -118,23 +124,7 @@ focus_pane_right = ["prefix+l", "prefix+right"]
 Put the `[keys]` table before the `[[keys.command]]` entries. If you have already customized
 `focus_pane_*`, add the arrow keys to your own lists instead.
 
-## Place
-
-`place` opens a popup listing every pane, grouped by workspace and tab, with the current
-workspace first. Each row shows the pane ID, the agent and its status, the pane name, and its
-working directory.
-
-1. `↑` `↓` to choose the pane to sit beside, `Enter` to confirm
-2. `←` `↑` `→` `↓` to choose the side; the move happens immediately
-
-`Esc` goes back a step, or closes the popup from the list. Nothing moves until a side is chosen.
-
-## How it works
-
-`herdr pane move` can only put a pane to the right of or below its target, and ignores a move
-within the same tab. `place` works around both: a pane that stays in its tab first moves out to
-a temporary tab, comes back with the wanted split direction, and is swapped with its target when
-it should end up on the left or above. The temporary tab closes on its own.
+## Rotate
 
 `rotate` follows the rows and columns you see, not how Herdr happens to nest its splits:
 
@@ -159,16 +149,62 @@ focus on C           rotate              focus on A           rotate
                      └───────────┘
 ```
 
-Under the hood it reads the split tree from `herdr pane layout`, parks the affected panes in a
-temporary tab, and moves them back one by one in the new arrangement.
+## Place
 
-## Focus
+`place` opens a popup listing every pane, grouped by workspace and tab, with the current
+workspace first. Each row shows the pane ID, the agent and its status, the pane name, and its
+working directory.
+
+1. `↑` `↓` to choose the pane to sit beside, `Enter` to confirm
+2. `←` `↑` `→` `↓` to choose the side; the move happens immediately
+
+`Esc` goes back a step, or closes the popup from the list. Nothing moves until a side is chosen.
+
+## Troubleshooting
+
+**Nothing happens when I press a key.** Check whether the action ran:
+
+```sh
+herdr plugin log list --plugin pane-shift --limit 5
+```
+
+- No new entry: the keypress never reached Herdr. Make sure you added the keybindings and reloaded
+  the config. Some terminals and editors capture Ctrl+arrow keys for themselves (for example the
+  VS Code integrated terminal); free the key there or pick another one.
+- A `failed` entry: its message says why, for example there is no pane in that direction.
+
+**The key works only some of the time.** Press the prefix once. In prefix mode a second `ctrl+b`
+sends a literal `^B` to the pane and leaves prefix mode, so the next key goes to the pane.
+
+**Errors.** They are shown as Herdr notifications and written to the plugin log above.
+
+Avoid `prefix+ctrl+m` for your own bindings: terminals send Ctrl+M as Enter.
+
+## How it works
+
+Every action also works from the CLI and acts on the pane Herdr currently has focused:
+
+```sh
+herdr plugin action invoke pane-shift.rotate
+```
 
 A moved pane keeps focus only if it had focus before, so invoking an action from the CLI or
-another client does not pull your view away.
+another client does not pull your view away. A tab left empty by a move is closed by Herdr.
 
-Errors are shown as Herdr notifications and written to the plugin log
-(`herdr plugin log list --plugin pane-shift`).
+`herdr pane move` can only put a pane to the right of or below its target, and ignores a move
+within the same tab. `rotate` and `place` work around this: they read the split tree from
+`herdr pane layout`, park the affected panes in a temporary tab, and move them back one by one
+in the new arrangement. The temporary tab closes on its own, though you may see it flash in the
+tab bar.
+
+## Development
+
+Link a local checkout instead of installing from GitHub, so edits take effect immediately:
+
+```sh
+herdr plugin uninstall pane-shift
+herdr plugin link /path/to/herdr-pane-shift
+```
 
 ## License
 
