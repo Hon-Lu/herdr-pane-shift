@@ -96,6 +96,28 @@ Every action also works from the CLI and acts on the pane Herdr currently has fo
 herdr plugin action invoke pane-shift.rotate
 ```
 
+### Optional: move focus with the arrow keys too
+
+Herdr moves focus with `prefix+h/j/k/l` by default, and `prefix+arrow` is unbound. Binding the
+arrows to focus pairs naturally with this plugin: the arrows move focus, and the same arrows with
+Ctrl move the pane itself. The lists keep the default `h/j/k/l` keys working:
+
+```toml
+[keys]
+focus_pane_left = ["prefix+h", "prefix+left"]
+focus_pane_down = ["prefix+j", "prefix+down"]
+focus_pane_up = ["prefix+k", "prefix+up"]
+focus_pane_right = ["prefix+l", "prefix+right"]
+```
+
+| Keys | Moves |
+|---|---|
+| `prefix+←` `↑` `→` `↓` | Focus |
+| `prefix+ctrl+←` `↑` `→` `↓` | The focused pane |
+
+Put the `[keys]` table before the `[[keys.command]]` entries. If you have already customized
+`focus_pane_*`, add the arrow keys to your own lists instead.
+
 ## Place
 
 `place` opens a popup listing every pane, grouped by workspace and tab, with the current
