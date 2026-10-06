@@ -24,7 +24,11 @@ No dependencies, no build step. Linux, macOS, and Windows.
 
 ## Install
 
-From a local checkout:
+```sh
+herdr plugin install Hon-Lu/herdr-pane-shift
+```
+
+Or from a local checkout:
 
 ```sh
 herdr plugin link /path/to/herdr-pane-shift
@@ -143,3 +147,7 @@ another client does not pull your view away.
 
 Errors are shown as Herdr notifications and written to the plugin log
 (`herdr plugin log list --plugin pane-shift`).
+
+## License
+
+MIT
