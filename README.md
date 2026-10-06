@@ -6,7 +6,7 @@ A small [Herdr](https://herdr.dev) plugin for rearranging panes from the keyboar
 |---|---|---|
 | `prefix+ctrl+←` `↑` `→` `↓` | `pane-shift.move-left` / `-up` / `-right` / `-down` | Swap the focused pane with its neighbor in that direction |
 | `prefix+ctrl+t` | `pane-shift.break` | Move the focused pane into a new tab of its own |
-| `prefix+ctrl+r` | `pane-shift.rotate` | Turn the focused pane and its neighbor from top/bottom into left/right, or back |
+| `prefix+ctrl+r` | `pane-shift.rotate` | Stack the focused pane into the column beside it, or pop it out of its column |
 | `prefix+ctrl+p` | `pane-shift.place` | Pick any pane in any tab and place the focused pane on one side of it |
 
 None of the suggested keys are used by Herdr's defaults. With the default prefix (`ctrl+b`) you
@@ -106,12 +106,35 @@ working directory.
 ## How it works
 
 `herdr pane move` can only put a pane to the right of or below its target, and ignores a move
-within the same tab. `rotate` and `place` work around both: a pane that stays in its tab first
-moves out to a temporary tab, comes back with the wanted split direction, and is swapped with
-its target when it should end up on the left or above. The temporary tab closes on its own.
+within the same tab. `place` works around both: a pane that stays in its tab first moves out to
+a temporary tab, comes back with the wanted split direction, and is swapped with its target when
+it should end up on the left or above. The temporary tab closes on its own.
 
-`rotate` only acts when a single neighbor shares a full edge with the focused pane. If the
-other side of the split holds several panes, it reports that there is nothing to rotate.
+`rotate` follows the rows and columns you see, not how Herdr happens to nest its splits:
+
+| The focused pane is | Rotate |
+|---|---|
+| In a row, with a pane on its left | Stacks under its left neighbor, at the bottom of that column |
+| The first pane of a row | Stacks on top of its right neighbor |
+| In a column, with a pane above it | Pops out into its own column, to the right of that column |
+| The top pane of a column | Pops out into its own column, to the left |
+
+Stacking and popping out undo each other, so rotating the same pane again puts it back. A pane
+popped out of a column takes its share of that column's width (one of three panes gets a third).
+
+```
+focus on C           rotate              focus on A           rotate
+┌─────┬─────┐        ┌───────────┐       ┌─────┬─────┐        ┌───┬───┬───┐
+│  A  │     │        │     A     │       │  A  │     │        │   │   │   │
+├─────┤  C  │   →    ├───────────┤       ├─────┤  C  │   →    │ A │ B │ C │
+│  B  │     │        │     B     │       │  B  │     │        │   │   │   │
+└─────┴─────┘        ├───────────┤       └─────┴─────┘        └───┴───┴───┘
+                     │     C     │
+                     └───────────┘
+```
+
+Under the hood it reads the split tree from `herdr pane layout`, parks the affected panes in a
+temporary tab, and moves them back one by one in the new arrangement.
 
 ## Focus
 

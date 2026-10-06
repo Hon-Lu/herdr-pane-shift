@@ -76,29 +76,93 @@ export function placeBeside(sourceId, targetId, side, focus) {
 }
 
 /**
- * 找出與 pane 共用一整條邊的相鄰 pane，也就是同一個分割底下的另一半。
- * axis 為 "vertical" 表示上下排列；paneIsFirst 表示 pane 在上方或左方。
+ * 由 pane layout 的座標還原 herdr 的分割樹。
+ * 節點為 { type: "pane", paneId } 或 { type: "split", direction, ratio, first, second }；
+ * direction 沿用 herdr 的 "right"（左右並排）與 "down"（上下排列），ratio 是 first 所佔比例。
  */
-export function findSibling(layout, paneId) {
-  const pane = layout.panes.find((p) => p.pane_id === paneId);
-  const a = pane.rect;
-  for (const other of layout.panes) {
-    if (other.pane_id === paneId) continue;
-    const b = other.rect;
-    const sameColumn = near(a.x, b.x) && near(a.width, b.width);
-    const sameRow = near(a.y, b.y) && near(a.height, b.height);
-    if (sameColumn && near(a.y + a.height, b.y)) {
-      return { paneId: other.pane_id, axis: "vertical", paneIsFirst: true };
+export function buildTree(layout) {
+  return buildNode(layout.panes, layout.splits);
+}
+
+/**
+ * 把 tab 中的子分割 oldNode 重組成 newNode 的樹形，兩者必須包含同一組 pane；
+ * pane 與其中的程序都不會重建。newNode 的第一個 pane 留在原位當錨點（其餘 pane 移走後
+ * 它會佔滿整個子分割的位置），其餘 pane 先移到暫存 tab，再依新的樹形逐一切回錨點周圍；
+ * 暫存 tab 搬空後由 herdr 自動關閉。
+ * focus 指定要維持焦點的 pane 與它搬回時使用的焦點旗標。
+ */
+export function rebuildSubtree(tabId, oldNode, newNode, focus) {
+  const anchor = firstLeaf(newNode);
+  const parked = leaves(oldNode).filter((id) => id !== anchor);
+  let holdingTab = null;
+  for (const id of parked) {
+    if (holdingTab) {
+      herdr("pane", "move", id, "--tab", holdingTab, "--split", "right", "--target-pane", parked[0], "--no-focus");
+    } else {
+      holdingTab = herdr("pane", "move", id, "--new-tab", "--no-focus").move_result.pane.tab_id;
     }
-    if (sameColumn && near(b.y + b.height, a.y)) {
-      return { paneId: other.pane_id, axis: "vertical", paneIsFirst: false };
+  }
+
+  const remaining = new Set(parked);
+  try {
+    attach(newNode, anchor, tabId, remaining, focus);
+  } catch (error) {
+    // 中途失敗時至少把還在暫存 tab 的 pane 放回原 tab，不讓它們遺落在別處
+    for (const id of remaining) {
+      try {
+        herdr("pane", "move", id, "--tab", tabId, "--split", "right", "--target-pane", anchor, "--no-focus");
+      } catch {
+        // 盡力而為，原始錯誤比較重要
+      }
     }
-    if (sameRow && near(a.x + a.width, b.x)) {
-      return { paneId: other.pane_id, axis: "horizontal", paneIsFirst: true };
-    }
-    if (sameRow && near(b.x + b.width, a.x)) {
-      return { paneId: other.pane_id, axis: "horizontal", paneIsFirst: false };
-    }
+    throw error;
+  }
+}
+
+/**
+ * 把二元分割樹攤平成使用者看得到的排與欄：同方向的連續分割合併成一個群組。
+ * 群組為 { type: "group", direction, items: [{ node, size }], source }，size 是項目在群組內的比例，
+ * source 是這個群組在原本二元樹中的根節點。
+ */
+export function toGroups(node) {
+  if (node.type === "pane") return node;
+  return { type: "group", direction: node.direction, items: flatten(node, node.direction, 1), source: node };
+}
+
+/** toGroups 的反向轉換，群組內的項目依序以往右（或往下）巢狀的分割串起來。 */
+export function fromGroups(node) {
+  if (node.type === "pane") return node;
+  const last = node.items.at(-1);
+  let result = fromGroups(last.node);
+  let total = last.size;
+  for (let i = node.items.length - 2; i >= 0; i--) {
+    const { node: child, size } = node.items[i];
+    result = { type: "split", direction: node.direction, ratio: size / (size + total), first: fromGroups(child), second: result };
+    total += size;
+  }
+  return result;
+}
+
+/**
+ * 建立群組：與群組同方向的子群組併入同一層，比例重新正規化；只剩一個項目時直接回傳該項目。
+ */
+export function makeGroup(direction, items) {
+  const merged = items.flatMap(({ node, size }) =>
+    node.type === "group" && node.direction === direction
+      ? node.items.map((item) => ({ node: item.node, size: item.size * size }))
+      : [{ node, size }]);
+  if (merged.length === 1) return merged[0].node;
+  const total = merged.reduce((sum, item) => sum + item.size, 0);
+  return { type: "group", direction, items: merged.map((item) => ({ node: item.node, size: item.size / total })) };
+}
+
+/** 從根群組走到 pane 的路徑，每一步記錄所在群組與項目索引；pane 獨佔整個 tab 時回傳 null。 */
+export function findPath(node, paneId) {
+  if (node.type === "pane") return null;
+  for (const [index, item] of node.items.entries()) {
+    if (item.node.type === "pane" && item.node.paneId === paneId) return [{ group: node, index }];
+    const rest = findPath(item.node, paneId);
+    if (rest) return [{ group: node, index }, ...rest];
   }
   return null;
 }
@@ -115,6 +179,88 @@ export function parseJson(text) {
 /** 跨 workspace 的 move 會配發新的 pane ID，之後的操作要改用回傳值。 */
 function movedPaneId(result, fallback) {
   return result?.move_result?.pane?.pane_id ?? fallback;
+}
+
+function buildNode(panes, splits) {
+  if (panes.length === 1) {
+    return { type: "pane", paneId: panes[0].pane_id };
+  }
+  const box = boundingBox(panes.map((p) => p.rect));
+  const split = splits.find((s) => sameRect(s.rect, box));
+  // 對不到 herdr 回報的分割時，改從座標推斷方向
+  const candidates = split ? [split] : [{ direction: "right", ratio: 0.5 }, { direction: "down", ratio: 0.5 }];
+  for (const { direction, ratio } of candidates) {
+    const parts = cut(panes, box, direction, ratio);
+    if (parts) {
+      return {
+        type: "split",
+        direction,
+        ratio,
+        first: buildNode(parts[0], splits),
+        second: buildNode(parts[1], splits),
+      };
+    }
+  }
+  throw new Error("Could not work out how this tab is split.");
+}
+
+/** 沿分割方向找出能把 pane 乾淨分成兩群的切線；有多條時取最接近分割比例的那條。 */
+function cut(panes, box, direction, ratio) {
+  const alongX = direction === "right";
+  const start = (r) => (alongX ? r.x : r.y);
+  const end = (r) => (alongX ? r.x + r.width : r.y + r.height);
+  const origin = alongX ? box.x : box.y;
+  const expected = origin + (alongX ? box.width : box.height) * ratio;
+  let best = null;
+  for (const line of new Set(panes.map((p) => start(p.rect)))) {
+    if (line <= origin) continue;
+    const first = panes.filter((p) => start(p.rect) < line);
+    if (!first.every((p) => end(p.rect) <= line + EDGE_TOLERANCE)) continue;
+    if (!best || Math.abs(line - expected) < Math.abs(best.line - expected)) {
+      best = { line, parts: [first, panes.filter((p) => start(p.rect) >= line)] };
+    }
+  }
+  return best?.parts ?? null;
+}
+
+function flatten(node, direction, share) {
+  if (node.type === "split" && node.direction === direction) {
+    return [
+      ...flatten(node.first, direction, share * node.ratio),
+      ...flatten(node.second, direction, share * (1 - node.ratio)),
+    ];
+  }
+  return [{ node: toGroups(node), size: share }];
+}
+
+function attach(node, anchor, tabId, remaining, focus) {
+  if (node.type === "pane") return;
+  const head = firstLeaf(node.second);
+  herdr("pane", "move", head, "--tab", tabId, "--split", node.direction, "--target-pane", anchor,
+    "--ratio", String(node.ratio), head === focus.paneId ? focus.flag : "--no-focus");
+  remaining.delete(head);
+  attach(node.first, anchor, tabId, remaining, focus);
+  attach(node.second, head, tabId, remaining, focus);
+}
+
+function leaves(node) {
+  return node.type === "pane" ? [node.paneId] : [...leaves(node.first), ...leaves(node.second)];
+}
+
+function firstLeaf(node) {
+  return node.type === "pane" ? node.paneId : firstLeaf(node.first);
+}
+
+function boundingBox(rects) {
+  const x = Math.min(...rects.map((r) => r.x));
+  const y = Math.min(...rects.map((r) => r.y));
+  const right = Math.max(...rects.map((r) => r.x + r.width));
+  const bottom = Math.max(...rects.map((r) => r.y + r.height));
+  return { x, y, width: right - x, height: bottom - y };
+}
+
+function sameRect(a, b) {
+  return near(a.x, b.x) && near(a.y, b.y) && near(a.width, b.width) && near(a.height, b.height);
 }
 
 function near(a, b) {
