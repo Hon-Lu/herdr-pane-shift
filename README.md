@@ -160,6 +160,9 @@ working directory.
 
 `Esc` goes back a step, or closes the popup from the list. Nothing moves until a side is chosen.
 
+The mouse works too: the wheel scrolls the list, a click selects a pane and a second click on it
+confirms, the side buttons at the bottom are clickable, and a right-click acts like `Esc`.
+
 ## Troubleshooting
 
 **Nothing happens when I press a key.** Check whether the action ran:
